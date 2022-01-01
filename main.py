@@ -11,7 +11,7 @@ from pygame import GL_MULTISAMPLEBUFFERS, GL_MULTISAMPLESAMPLES
 import CameraHandler
 import GamePathHandler
 import ShaderLoader
-from DefaultBlockHandler import DefaultBlock
+import ChunkHandler
 from Enumerations import *
 
 import faulthandler
@@ -75,8 +75,9 @@ def main():
     glEnable(GL_MULTISAMPLE)
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    glDisable(GL_CULL_FACE)
-    # glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    #glDisable(GL_CULL_FACE)
+    #glCullFace(GL_FRONT_AND_BACK)
+    #glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
 
     glClearColor(0, 0, 0, 1.0)
     # glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
@@ -88,12 +89,10 @@ def main():
 
     camera = CameraHandler.Camera(vec3(0, 5, 0), displayV/2)
 
-    import ChunkHandler, VboHandler
-
-    chunk = ChunkHandler.Chunk()
+    chunk = ChunkHandler.Chunk(shader)
+    chunk.GenerateChunk()
     chunk.UpdateFaceShow()
-
-    vbo = VboHandler.VBOChunk(shader, DefaultBlock(), chunk)
+    chunk.VBO.updateChunkData()
 
     angle = 0
     while running:
@@ -115,7 +114,7 @@ def main():
         glUniformMatrix4fv(uniformView, 1, GL_FALSE,
                            glm.value_ptr(camera.lookAtMatrix))
 
-        vbo.draw()
+        chunk.draw()
 
         pygame.display.flip()
 
@@ -124,7 +123,7 @@ def main():
         times.append(ft)
 
     print("Average ms Per Frame", sum(times) / len(times))
-
+    print("Average ms Per Draw", sum(chunk.VBO.times) / len(chunk.VBO.times))
 
 if __name__ == "__main__":
     """import cProfile, pstats
