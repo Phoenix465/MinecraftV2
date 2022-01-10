@@ -10,4 +10,6 @@ class PathHolder:
         self.fragmentPath = path.join(self.shaderPath, "MainFragment.shader")
         self.defaultShaderPaths = (self.vertexPath, self.fragmentPath)
 
-
+        self.UIPlainVertexPath = path.join(self.shaderPath, "UIPlainVertex.shader")
+        self.UIPlainFragmentPath = path.join(self.shaderPath, "UIPlainFragment.shader")
+        self.UIPlainShaderPaths = (self.UIPlainVertexPath, self.UIPlainFragmentPath)
