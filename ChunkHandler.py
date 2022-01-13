@@ -55,13 +55,20 @@ class Chunk:
         s = time()
 
         rangeValues = [-sqrt(2) / 2, sqrt(2) / 2]
+        noisePoints = np.zeros((self.xSize, self.ySize))
+        for x in range(self.xSize):
+            for z in range(self.zSize):
+                noisePoints[x][z] = self.noise.noise2d(
+                    x=(x+self.bottomLeft.x) * self.scale,
+                    y=(z+self.bottomLeft.z) * self.scale
+                ) + rangeValues[1]
+
         for y in range(self.ySize):
             print(f"\rStarting Chunk {self.id:02} Generation {y:03} - {round((time()-s)*1000, 1)}ms Elapsed", flush=True, end=" ")
 
             for x in range(self.xSize):
                 for z in range(self.zSize):
-                    blockPos = self.bottomLeft + ivec3(x, y, z)
-                    maxSolidPoint = self.noise.noise2d(x=blockPos.x * self.scale, y=blockPos.z * self.scale) + rangeValues[1]
+                    maxSolidPoint = noisePoints[x][z]
                     maxSolidPoint *= 16
                     maxSolidPoint = int(maxSolidPoint)
 
@@ -175,8 +182,14 @@ class Chunk:
         e = time()
         print("Finished", round((e-s)*1000, 3))
 
-        print(getsizeof(serializedData), getsizeof(self.ChunkData), length)
+        #print(getsizeof(serializedData), getsizeof(self.ChunkData), length)
         return serializedData, length
 
     def draw(self):
         self.VBO.draw()
+
+
+def IsPointInChunk(chunk: Chunk, pos: vec3):
+    rPos = pos - chunk.bottomLeft
+
+    return 0 <= rPos.x < chunk.xSize and 0 <= rPos.z < chunk.zSize

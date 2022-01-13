@@ -29,7 +29,7 @@ class World:
     def generateChunks(self):
         s = time()
 
-        size = 1
+        size = 2
         chunkCounter = 0
         for chunkMultX in range(-size, size+1):
             for chunkMultY in range(-size, size+1):

@@ -80,14 +80,12 @@ def main():
     glEnable(GL_MULTISAMPLE)
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
-    glShadeModel(GL_FLAT)
     #glDisable(GL_CULL_FACE)
     #glCullFace(GL_FRONT_AND_BACK)
-    #glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    #   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
 
     glClearColor(0.5294, 0.8078, 0.9216, 1.0)
-    # glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
-
+    
     # ----- Main ------
     times = [0]
     running = True
