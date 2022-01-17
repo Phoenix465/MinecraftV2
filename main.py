@@ -1,10 +1,13 @@
+import DefaultBlockHandler
+import PlayerHandler
+import RayHandler
 from degreesMath import sin, cos
-from time import time
+from time import perf_counter
 
 import glm
 import pygame
 from OpenGL.GL import *
-from glm import vec3
+from glm import vec3, ivec3, vec2
 from pygame import DOUBLEBUF, OPENGL
 from pygame import GL_MULTISAMPLEBUFFERS, GL_MULTISAMPLESAMPLES
 
@@ -21,6 +24,7 @@ import faulthandler
 
 def main():
     # Initialisation
+    glm.silence(2)
     pygame.init()
     GamePaths = GamePathHandler.PathHolder()
 
@@ -28,8 +32,8 @@ def main():
     display = 1366, 768
     displayV = glm.vec2(display)
 
-    #pygame.display.gl_set_attribute(GL_MULTISAMPLEBUFFERS, 1)
-    #pygame.display.gl_set_attribute(GL_MULTISAMPLESAMPLES, 2)
+    pygame.display.gl_set_attribute(GL_MULTISAMPLEBUFFERS, 1)
+    pygame.display.gl_set_attribute(GL_MULTISAMPLESAMPLES, 2)
 
     screen = pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
     pygame.display.set_caption("Minecraft")
@@ -55,16 +59,19 @@ def main():
     glUniformMatrix4fv(uniformProjection, 1, GL_FALSE,
                        glm.value_ptr(projectionMatrix))
 
-    blockExistCount = 0
+    blockIds = []
     for blockType in BlockType:
         blockName, blockId = blockType.name, blockType.value
         blockColour = BlockColour[blockName].value
-        blockExistCount += 1
+        blockIds.append(blockId)
 
         glUniform3f(glGetUniformLocation(shader, f'uniform_BlockTypeColours[{blockId}]'), *blockColour.to_tuple())
 
     # Sets all other block types to default white
-    for extraId in range(blockExistCount, 128):
+    for extraId in range(128):
+        if extraId in blockIds:
+            continue
+
         glUniform3f(glGetUniformLocation(shader, f"uniform_BlockTypeColours[{extraId}]"), 1, 1, 1)
 
     # ----- OpenGL Settings -----
@@ -91,22 +98,27 @@ def main():
     running = True
     clock = pygame.time.Clock()
 
-    camera = CameraHandler.Camera(vec3(0, 5, 0), displayV/2)
-
     world = WorldHandler.World(shader)
     world.setup()
+
+    player = PlayerHandler.Player(shader, vec3(0, 5, 0), displayV/2, world)
+
+    player.highlightBlock.chunkPos = ivec3(5, 5, 5)
+    player.highlightBlock.show = True
+    player.highlightBlock.VBOBlock.updateChunkBlockData()
 
     crosshair = UIHandler.Crosshair(uiPlainShader, displayV)
 
     angle = 0
     radius = 5
+    rayTimes = [0]
     while running:
         deltaT = clock.tick(60) / 1000
 
         times = times[:600]
         angle += 5 * deltaT
 
-        s = time() * 1000
+        s = perf_counter() * 1000
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -117,7 +129,7 @@ def main():
         glUseProgram(shader)
 
         glUniformMatrix4fv(uniformView, 1, GL_FALSE,
-                           glm.value_ptr(camera.lookAtMatrix))
+                           glm.value_ptr(player.lookAtMatrix))
 
         glUniformMatrix4fv(uniformModel, 1, GL_FALSE,
                            glm.value_ptr(modelMatrix))
@@ -127,22 +139,50 @@ def main():
 
         glUniform3f(uniformLightPos, sin(angle)*radius, 16, cos(angle)*radius)
 
-        camera.rotateCamera()
-        camera.moveCamera(deltaT)
+        player.rotateCamera()
+        player.moveCamera(deltaT)
 
-        world.draw()
+        #s1 = perf_counter()
+
+        hitPos, chunkPos, chunk = RayHandler.FindRayHitBlock(
+            RayHandler.Ray(
+                player.headPos,
+                player.lookRelPos
+            ),
+            RayHandler.DefaultBlockAABB(),
+            player.GetCloseAdjacentChunks()
+        )
+
+        #e1 = (perf_counter() - s1)*1000/1000
+        #rayTimes.append(e1)
+        #print("Run Time", e1, "ms")
+
+        if hitPos:
+            player.highlightBlock.chunkPos = chunkPos
+            player.highlightBlock.chunkId = chunk.id
+            player.highlightBlock.show = True
+            player.highlightBlock.VBOBlock.updateChunkBlockData()
+        else:
+            player.highlightBlock.show = False
+
+        player.draw()
+        world.drawGroups()
+
+
+        #print("Collision..", )
 
         glUseProgram(uiPlainShader)
         crosshair.draw()
 
         pygame.display.flip()
 
-        e = time() * 1000
+        e = perf_counter() * 1000
         ft = e - s
         times.append(ft)
 
     print("Average ms Per Frame", sum(times) / len(times))
     print("Average ms Per Draw", sum(world.times) / len(world.times))
+    print("Average ms Per Ray", sum(rayTimes) / len(rayTimes))
 
 
 if __name__ == "__main__":

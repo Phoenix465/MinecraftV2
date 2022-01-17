@@ -1,9 +1,11 @@
 import sys
 from math import sqrt
 from random import randint
-from time import time
+from time import perf_counter
 
 from sys import getsizeof
+
+import glm
 import numpy as np
 from glm import vec3, ivec3
 from numba import jit
@@ -11,17 +13,22 @@ from numba import jit
 from DefaultBlockHandler import DefaultBlockFaceFill
 from Enumerations import *
 
-from VboHandler import VBOChunk
+from VboHandler import VBOChunkBlock
 np.set_printoptions(threshold=sys.maxsize)
 
 
 class Chunk:
-    def __init__(self, shader, noise, bottomLeft: ivec3 = ivec3(), chunkSize: ivec3 = ivec3(16, 256, 16), id=0):
+    def __init__(self, shader, noise, blockObject, bottomLeft: ivec3 = ivec3(), chunkSize: ivec3 = ivec3(16, 256, 16), id=0):
         self.bottomLeft = bottomLeft
+        self.bottomLeftV = vec3(bottomLeft)
         self.id = id
         self.noise = noise
 
         self.xSize, self.ySize, self.zSize = chunkSize.to_tuple()
+        self.minPos = self.bottomLeftV - vec3(0.5, 0.5, 0.5)
+        self.maxPos = self.bottomLeftV + vec3(self.xSize, self.ySize, self.zSize) + vec3(0.5, 0.5, 0.5)
+        self.minPosI = self.bottomLeft
+        self.maxPosI = self.bottomLeft + ivec3(self.xSize, self.ySize, self.zSize)
 
         self.blockRelVec = [
             ivec3(0, -1, 0),
@@ -46,13 +53,13 @@ class Chunk:
 
         # 2 Because it's Type, Face Mask
         self.ChunkData = np.zeros((self.ySize, self.xSize, self.zSize, 2), dtype=np.uint8)
-        self.VBO = VBOChunk(shader, DefaultBlockFaceFill(), self)
+        self.VBO = VBOChunkBlock(shader, blockObject, self)
 
         self.DrawBlockLength = 0
         self.scale = 1/200
 
     def GenerateChunk(self):
-        s = time()
+        s = perf_counter()
 
         rangeValues = [-sqrt(2) / 2, sqrt(2) / 2]
         noisePoints = np.zeros((self.xSize, self.ySize))
@@ -64,7 +71,7 @@ class Chunk:
                 ) + rangeValues[1]
 
         for y in range(self.ySize):
-            print(f"\rStarting Chunk {self.id:02} Generation {y:03} - {round((time()-s)*1000, 1)}ms Elapsed", flush=True, end=" ")
+            print(f"\rStarting Chunk {self.id:02} Generation {y:03} - {round((perf_counter()-s)*1000, 1)}ms Elapsed", flush=True, end=" ")
 
             for x in range(self.xSize):
                 for z in range(self.zSize):
@@ -88,9 +95,9 @@ class Chunk:
         print("FINISHED")
 
     def UpdateFaceShow(self):
-        s = time()
+        s = perf_counter()
         for y, yData in enumerate(self.ChunkData):
-            print(f"\rUpdating Chunk {self.id:02} Faces      {y:03} - {round((time()-s)*1000, 1)}ms Elapsed", flush=True, end=" ")
+            print(f"\rUpdating Chunk {self.id:02} Faces      {y:03} - {round((perf_counter()-s)*1000, 1)}ms Elapsed", flush=True, end=" ")
 
             for x, xData in enumerate(yData):
                 for z, currentBlock in enumerate(xData):
@@ -174,12 +181,12 @@ class Chunk:
             return np.array([]), 0
 
         print(f"Serializing Chunk {self.id:02}", end=" ")
-        s = time()
+        s = perf_counter()
 
         serializedData, length = serializeData(self.ChunkData, self.id)
         self.DrawBlockLength = length
 
-        e = time()
+        e = perf_counter()
         print("Finished", round((e-s)*1000, 3))
 
         #print(getsizeof(serializedData), getsizeof(self.ChunkData), length)
@@ -189,7 +196,23 @@ class Chunk:
         self.VBO.draw()
 
 
-def IsPointInChunk(chunk: Chunk, pos: vec3):
-    rPos = pos - chunk.bottomLeft
+class ChunkGroup:
+    def __init__(self, shader, blockObject, chunks):
+        self.chunks = chunks
 
-    return 0 <= rPos.x < chunk.xSize and 0 <= rPos.z < chunk.zSize
+        self.VBO = VBOChunkBlock(shader, blockObject, self)
+
+    def serialize(self, skip=False, completeRefresh=True):
+        if skip:
+            return np.array([]), 0
+
+        blocks = np.concatenate([chunk.serialize()[0] for chunk in self.chunks])
+
+        return blocks, len(blocks)
+
+    def draw(self):
+        self.VBO.draw()
+
+
+def IsPointInChunkV(chunk: Chunk, pos: ivec3):
+    return glm.all(glm.greaterThanEqual(pos, chunk.minPosI)) and glm.all(glm.lessThan(pos, chunk.maxPosI))

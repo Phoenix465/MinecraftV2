@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import ctypes
-from time import time
+from time import perf_counter
 
 import numpy as np
 from OpenGL.GL import glGenVertexArrays, glGenBuffers, glBindVertexArray, glBindBuffer, glBufferData, \
@@ -10,19 +10,27 @@ from OpenGL.GL import glGenVertexArrays, glGenBuffers, glBindVertexArray, glBind
     glVertexAttribPointer, glEnableVertexAttribArray, glVertexAttribDivisor, \
     glDrawElementsInstanced, glDrawElements, glDrawArrays, glGetAttribLocation, \
     GL_FLOAT, GL_INT, GL_FALSE, \
-    GL_TRIANGLES, GL_UNSIGNED_INT, glVertexAttribIPointer, glBufferSubData
+    GL_TRIANGLES, GL_LINES, GL_UNSIGNED_INT, glVertexAttribIPointer, glBufferSubData
 
-from DefaultBlockHandler import DefaultBlockFaceFill
 import typing
+from typing import Union
 
 if typing.TYPE_CHECKING:
-    from ChunkHandler import Chunk
+    from ChunkHandler import Chunk, Chunk2x2
     from UIHandler import Rectangle
+    from DefaultBlockHandler import DefaultBlockFaceFill, DefaultBlockLines
+    from BlockHandler import HighlightBlock
 
 
-class VBOChunk:
-    def __init__(self, shader, defaultBlock: DefaultBlockFaceFill, chunkObject: Chunk):
-        self.chunkObject = chunkObject
+class VBOChunkBlock:
+    def __init__(self,
+                 shader,
+                 defaultBlock: Union[DefaultBlockFaceFill, DefaultBlockLines],
+                 mainObject: Union[Chunk, Chunk2x2, HighlightBlock],
+                 isChunk=True):
+
+        self.mainObject = mainObject
+        self.drawMode = GL_TRIANGLES if isChunk else GL_LINES
         self.shader = shader
 
         self.vertices = np.array(defaultBlock.vertices, dtype=np.float32).flatten()
@@ -45,7 +53,7 @@ class VBOChunk:
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4 * len(self.indices), self.indices, GL_STATIC_DRAW)
 
         # Set Chunk Data
-        chunkData, self.blockLength = self.chunkObject.serialize(skip=True)
+        chunkData, self.blockLength = self.mainObject.serialize(skip=True)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.CBO)
         glBufferData(GL_ARRAY_BUFFER, 4 * len(chunkData), chunkData, GL_DYNAMIC_DRAW)
@@ -74,25 +82,24 @@ class VBOChunk:
         glVertexAttribDivisor(self.chunkIdLocation, 1)
         glEnableVertexAttribArray(self.chunkIdLocation)
 
-
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         glBindVertexArray(0)
 
         self.times = []
 
-    def updateChunkData(self):
-        chunkData, self.blockLength = self.chunkObject.serialize()
+    def updateChunkBlockData(self):
+        chunkBlockData, self.blockLength = self.mainObject.serialize()
 
         glBindBuffer(GL_ARRAY_BUFFER, self.CBO)
-        glBufferData(GL_ARRAY_BUFFER, 4 * len(chunkData), chunkData, GL_DYNAMIC_DRAW)
+        glBufferData(GL_ARRAY_BUFFER, 4 * len(chunkBlockData), chunkBlockData, GL_DYNAMIC_DRAW)
         glBindBuffer(GL_ARRAY_BUFFER, 0)
 
     def draw(self):
-        s = time()
+        s = perf_counter()
         glBindVertexArray(self.VAO)
-        glDrawElementsInstanced(GL_TRIANGLES, len(self.indices), GL_UNSIGNED_INT, None, self.blockLength)
+        glDrawElementsInstanced(self.drawMode, len(self.indices), GL_UNSIGNED_INT, None, self.blockLength)
         glBindVertexArray(0)
-        e = time() - s
+        e = perf_counter() - s
         self.times.append(e*1000)
         self.times = self.times[:2000]
 

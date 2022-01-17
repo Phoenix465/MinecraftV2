@@ -1,4 +1,4 @@
-from time import time
+from time import perf_counter
 
 import pygame
 from glm import vec3, vec2, normalize, length, silence
@@ -52,14 +52,17 @@ class Ray:
 def intersect(box: Box, ray: Ray):
     bounds = box.bounds
 
-    tmin = (bounds[ray.sign[0]].x - ray.orig.x) * ray.invdir.x
-    tmax = (bounds[1 - ray.sign[0]].x - ray.orig.x) * ray.invdir.x
+    tmin, tymin, tzmin = vec3(
+        bounds[ray.sign[0]].x - ray.orig.x,
+        bounds[ray.sign[1]].y - ray.orig.y,
+        bounds[ray.sign[2]].z - ray.orig.z
+    ) * ray.invdir
 
-    tymin = (bounds[ray.sign[1]].y - ray.orig.y) * ray.invdir.y
-    tymax = (bounds[1 - ray.sign[1]].y - ray.orig.y) * ray.invdir.y
-
-    tzmin = (bounds[ray.sign[2]].z - ray.orig.z) * ray.invdir.z
-    tzmax = (bounds[1 - ray.sign[2]].z - ray.orig.z) * ray.invdir.z
+    tmax, tymax, tzmax = vec3(
+        bounds[1 - ray.sign[0]].x - ray.orig.x,
+        bounds[1 - ray.sign[1]].y - ray.orig.y,
+        bounds[1 - ray.sign[2]].z - ray.orig.z
+    ) * ray.invdir
 
     if tmin > tymax or tymin > tmax or tmin > tzmax or tzmin > tmax:
         return False, 0, 0
@@ -69,6 +72,8 @@ def intersect(box: Box, ray: Ray):
 
     tmin = 0 if isinf(tmin) else tmin
     tmax = 0 if isinf(tmax) else tmax
+
+    dirLength = tmin if tmin > 0 and tmin < tmax else (tmax if tmin < 0 and tmax > 0 else 0)
 
     return True, tmin, tmax
 
@@ -86,7 +91,7 @@ def main():
 
     box = Box(vec3(-0.5, -0.5, 0), vec3(0.5, 0.5, 0))
     dir = vec3(0.5, 0.3, 0)
-    ray = Ray(vec3(0, 0, 0), normalize(dir))
+    ray = Ray(vec3(-0.5, 0, 0), normalize(dir))
 
     angle = 0
     times = []
@@ -115,9 +120,9 @@ def main():
             ray.__init__(ray.orig, vec3(sin(angle), cos(angle), 0))
         screen.fill(background)
 
-        s = time()
+        s = perf_counter()
         collide, minDist, maxDist = intersect(box, ray)
-        e = time() - s
+        e = perf_counter() - s
         times.append(e*1000)
         if len(times) > 2500:
             del times[0]
