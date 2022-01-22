@@ -19,6 +19,8 @@ np.set_printoptions(threshold=sys.maxsize)
 
 class Chunk:
     def __init__(self, shader, noise, blockObject, bottomLeft: ivec3 = ivec3(), chunkSize: ivec3 = ivec3(16, 256, 16), id=0):
+        self.ChunkGroup = None
+
         self.bottomLeft = bottomLeft
         self.bottomLeftV = vec3(bottomLeft)
         self.id = id
@@ -65,7 +67,7 @@ class Chunk:
         noisePoints = np.zeros((self.xSize, self.ySize))
         for x in range(self.xSize):
             for z in range(self.zSize):
-                noisePoints[x][z] = self.noise.noise2d(
+                noisePoints[x, z] = self.noise.noise2d(
                     x=(x+self.bottomLeft.x) * self.scale,
                     y=(z+self.bottomLeft.z) * self.scale
                 ) + rangeValues[1]
@@ -96,11 +98,13 @@ class Chunk:
 
     def UpdateFaceShow(self):
         s = perf_counter()
-        for y, yData in enumerate(self.ChunkData):
+        for y in range(self.ySize):
             print(f"\rUpdating Chunk {self.id:02} Faces      {y:03} - {round((perf_counter()-s)*1000, 1)}ms Elapsed", flush=True, end=" ")
 
-            for x, xData in enumerate(yData):
-                for z, currentBlock in enumerate(xData):
+            for x in range(self.xSize):
+                for z in range(self.zSize):
+                    currentBlock = self.ChunkData[y, x, z]
+
                     if currentBlock[0] == 0:
                         faceMask = 0b000000
                         currentBlock[1] = faceMask & 255
@@ -117,7 +121,7 @@ class Chunk:
                             continue
 
                         if 0 <= newVec.x < self.xSize and 0 <= newVec.z < self.zSize:
-                            newBlock = self.ChunkData[newVec.y][newVec.x][newVec.z]
+                            newBlock = self.ChunkData[newVec.y, newVec.x, newVec.z]
                             faceMask = faceMask << 1 | (newBlock[0] == 0)
 
                         else:
@@ -130,7 +134,7 @@ class Chunk:
                             adjChunk = self.chunkRelVecLinks[chunkOffset]
 
                             if adjChunk:
-                                block = adjChunk.ChunkData[newVec.y][newVec.x - self.xSize*chunkOffset.x][newVec.z - self.zSize*chunkOffset.z]
+                                block = adjChunk.ChunkData[newVec.y, newVec.x - self.xSize*chunkOffset.x, newVec.z - self.zSize*chunkOffset.z]
                                 faceMask = faceMask << 1 | (block[0] == 0)
                             else:
                                 faceMask = faceMask << 1 | 1
@@ -140,7 +144,7 @@ class Chunk:
         print("FINISHED")
         np.save("test.npy", self.ChunkData)
 
-    def serialize(self, skip=False):
+    def serialize(self, skip=False, useCache=False):
         def serializeData(chunkData, id):
             #  x |
             #  y << 4 |
@@ -200,13 +204,18 @@ class ChunkGroup:
     def __init__(self, shader, blockObject, chunks):
         self.chunks = chunks
 
+        self.serializeCache = None
         self.VBO = VBOChunkBlock(shader, blockObject, self)
 
-    def serialize(self, skip=False, completeRefresh=True):
+    def serialize(self, skip=False, useCache=False):
         if skip:
             return np.array([]), 0
 
-        blocks = np.concatenate([chunk.serialize()[0] for chunk in self.chunks])
+        if useCache:
+            blocks = self.serializeCache.flatten()
+        else:
+            blocks = np.concatenate([chunk.serialize()[0] for chunk in self.chunks])
+            self.serializeCache = blocks.reshape(len(blocks)//2, 2)
 
         return blocks, len(blocks)
 
@@ -216,3 +225,13 @@ class ChunkGroup:
 
 def IsPointInChunkV(chunk: Chunk, pos: ivec3):
     return glm.all(glm.greaterThanEqual(pos, chunk.minPosI)) and glm.all(glm.lessThan(pos, chunk.maxPosI))
+
+
+def SerializeBlockData(blockPos, blockData):
+    return (
+            (blockPos.x & 0b1111) |
+            (blockPos.y & 0b11111111) << 4 |
+            (blockPos.z & 0b1111) << 4 + 8 |
+            (blockData[0] & 0b1111111) << 4 + 8 + 4 |
+            (blockData[1] & 0b111111) << 4 + 8 + 4 + 7
+    )

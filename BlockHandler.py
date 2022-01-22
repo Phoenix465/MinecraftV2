@@ -6,6 +6,7 @@ from glm import ivec3
 from DefaultBlockHandler import DefaultBlockLines
 from VboHandler import VBOChunkBlock
 from OpenGL.GL import glLineWidth
+from ChunkHandler import SerializeBlockData
 
 
 class HighlightBlock:
@@ -27,7 +28,7 @@ class HighlightBlock:
             self.VBOBlock.draw()
             glLineWidth(1)
 
-    def serialize(self, skip=False):
+    def serialize(self, skip=False, useCache=False):
         def serializeData(pos, id):
             #  x |
             #  y << 4 |
@@ -39,12 +40,7 @@ class HighlightBlock:
             #   X  |     Y    |  Z   |   Id    | FaceMask
 
             return np.array([
-                pos.x |
-                pos.y << 4 |
-                pos.z << 4 + 8 |
-                0b1111111 << 4 + 8 + 4 |
-                0b111111 << 4 + 8 + 4 + 7,
-
+                SerializeBlockData(pos, (0b1111111, 0b111111)),
                 id
             ], dtype=np.uint32), 1
 

@@ -77,7 +77,7 @@ def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
                 if not 0 <= chunkPos.y < chunk.ySize:
                     continue
 
-                if chunk.ChunkData[chunkPos.y][chunkPos.x][chunkPos.z][0]:
+                if chunk.ChunkData[chunkPos.y, chunkPos.x, chunkPos.z, 0]:
                     #print("SuccessfuSl")
                     return headPos, chunkPos, chunk
 

@@ -87,8 +87,11 @@ def main():
     glEnable(GL_MULTISAMPLE)
     glEnable(GL_BLEND)
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
+    glEnable(GL_LINE_SMOOTH)
+    glHint(GL_LINE_SMOOTH_HINT, GL_NICEST)
+
     #glDisable(GL_CULL_FACE)
-    #glCullFace(GL_FRONT_AND_BACK)
+    glCullFace(GL_FRONT_AND_BACK)
     #   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
 
     glClearColor(0.5294, 0.8078, 0.9216, 1.0)
@@ -112,6 +115,7 @@ def main():
     angle = 0
     radius = 5
     rayTimes = [0]
+    destroyCounter = [0]
     while running:
         deltaT = clock.tick(60) / 1000
 
@@ -122,9 +126,15 @@ def main():
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
+        mouseDestroy = False
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    mouseDestroy = True
 
         glUseProgram(shader)
 
@@ -162,6 +172,13 @@ def main():
             player.highlightBlock.chunkId = chunk.id
             player.highlightBlock.show = True
             player.highlightBlock.VBOBlock.updateChunkBlockData()
+
+            if mouseDestroy:
+                s = perf_counter()
+                world.removeBlock(chunkPos, chunk)
+                e = perf_counter() - s
+                destroyCounter.append(e*1000)
+
         else:
             player.highlightBlock.show = False
 
@@ -183,6 +200,7 @@ def main():
     print("Average ms Per Frame", sum(times) / len(times))
     print("Average ms Per Draw", sum(world.times) / len(world.times))
     print("Average ms Per Ray", sum(rayTimes) / len(rayTimes))
+    print("Average ms Per Destroy", sum(destroyCounter) / len(destroyCounter))
 
 
 if __name__ == "__main__":

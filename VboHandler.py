@@ -87,8 +87,8 @@ class VBOChunkBlock:
 
         self.times = []
 
-    def updateChunkBlockData(self):
-        chunkBlockData, self.blockLength = self.mainObject.serialize()
+    def updateChunkBlockData(self, useCache=False):
+        chunkBlockData, self.blockLength = self.mainObject.serialize(useCache=useCache)
 
         glBindBuffer(GL_ARRAY_BUFFER, self.CBO)
         glBufferData(GL_ARRAY_BUFFER, 4 * len(chunkBlockData), chunkBlockData, GL_DYNAMIC_DRAW)
