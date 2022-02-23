@@ -1,9 +1,9 @@
 from time import perf_counter
 
 import numpy as np
-from glm import ivec3
+from glm import ivec3, vec3, length
 
-from DefaultBlockHandler import DefaultBlockLines
+from DefaultBlockHandler import DefaultBlockLines, CentreBlock
 from VboHandler import VBOChunkBlock
 from OpenGL.GL import glLineWidth
 from ChunkHandler import SerializeBlockData
@@ -28,7 +28,7 @@ class HighlightBlock:
             self.VBOBlock.draw()
             glLineWidth(1)
 
-    def serialize(self, skip=False, useCache=False):
+    def serialize(self, skip=False, useCache=False, requireUpdate=False):
         def serializeData(pos, id):
             #  x |
             #  y << 4 |
@@ -57,3 +57,10 @@ class HighlightBlock:
 
         #print(getsizeof(serializedData), getsizeof(self.ChunkData), length)
         return serializedData, length
+
+
+def ClosestFace(point: vec3):
+    distanceD = {length(point - centre): i for i, centre in enumerate(CentreBlock.centres)}
+    minDist = min(distanceD.keys())
+
+    return distanceD[minDist]

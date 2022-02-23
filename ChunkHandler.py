@@ -1,4 +1,5 @@
 import sys
+from functools import lru_cache
 from math import sqrt
 from random import randint
 from time import perf_counter
@@ -8,6 +9,7 @@ from sys import getsizeof
 import glm
 import numpy as np
 from glm import vec3, ivec3
+from line_profiler_pycharm import profile
 from numba import jit
 
 from DefaultBlockHandler import DefaultBlockFaceFill
@@ -20,6 +22,9 @@ np.set_printoptions(threshold=sys.maxsize)
 class Chunk:
     def __init__(self, shader, noise, blockObject, bottomLeft: ivec3 = ivec3(), chunkSize: ivec3 = ivec3(16, 256, 16), id=0):
         self.ChunkGroup = None
+        self.requireUpdate = False
+        self.serializeCache = None
+        self.logSerialize = True
 
         self.bottomLeft = bottomLeft
         self.bottomLeftV = vec3(bottomLeft)
@@ -53,6 +58,7 @@ class Chunk:
             ivec3(-1, 0, -1): None,
         }
 
+        self.adjIInverse = [~(1 << i) & (2**6-1) for i in range(6)]
         # 2 Because it's Type, Face Mask
         self.ChunkData = np.zeros((self.ySize, self.xSize, self.zSize, 2), dtype=np.uint8)
         self.VBO = VBOChunkBlock(shader, blockObject, self)
@@ -144,7 +150,7 @@ class Chunk:
         print("FINISHED")
         np.save("test.npy", self.ChunkData)
 
-    def serialize(self, skip=False, useCache=False):
+    def serialize(self, skip=False, useCache=False, requireUpdate=False):
         def serializeData(chunkData, id):
             #  x |
             #  y << 4 |
@@ -184,14 +190,18 @@ class Chunk:
         if skip:
             return np.array([]), 0
 
-        print(f"Serializing Chunk {self.id:02}", end=" ")
+        if self.logSerialize:
+            print(f"Serializing Chunk {self.id:02}", end=" ")
         s = perf_counter()
 
         serializedData, length = serializeData(self.ChunkData, self.id)
+        self.serializeCache = serializedData
         self.DrawBlockLength = length
 
         e = perf_counter()
-        print("Finished", round((e-s)*1000, 3))
+        if self.logSerialize:
+            print("Finished", round((e-s)*1000, 3))
+            self.logSerialize = False
 
         #print(getsizeof(serializedData), getsizeof(self.ChunkData), length)
         return serializedData, length
@@ -206,16 +216,24 @@ class ChunkGroup:
 
         self.serializeCache = None
         self.VBO = VBOChunkBlock(shader, blockObject, self)
+        self.requireUpdateChunks = False
 
-    def serialize(self, skip=False, useCache=False):
+    def serialize(self, skip=False, useCache=False, requireUpdate=False):
         if skip:
             return np.array([]), 0
 
         if useCache:
-            blocks = self.serializeCache.flatten()
+            blocks = self.serializeCache.ravel()
         else:
-            blocks = np.concatenate([chunk.serialize()[0] for chunk in self.chunks])
+            blocks = np.concatenate([
+                (chunk.serializeCache if requireUpdate and not chunk.requireUpdate else chunk.serialize()[0])
+                for chunk in self.chunks
+            ])
             self.serializeCache = blocks.reshape(len(blocks)//2, 2)
+
+            if requireUpdate:
+                for chunk in self.chunks:
+                    chunk.requireUpdate = False
 
         return blocks, len(blocks)
 
@@ -227,6 +245,7 @@ def IsPointInChunkV(chunk: Chunk, pos: ivec3):
     return glm.all(glm.greaterThanEqual(pos, chunk.minPosI)) and glm.all(glm.lessThan(pos, chunk.maxPosI))
 
 
+@lru_cache(maxsize=None)
 def SerializeBlockData(blockPos, blockData):
     return (
             (blockPos.x & 0b1111) |
@@ -234,4 +253,15 @@ def SerializeBlockData(blockPos, blockData):
             (blockPos.z & 0b1111) << 4 + 8 |
             (blockData[0] & 0b1111111) << 4 + 8 + 4 |
             (blockData[1] & 0b111111) << 4 + 8 + 4 + 7
+    )
+
+
+@lru_cache(maxsize=None)
+def SerializeBlockDataU(blockPos, blockId, faceId):
+    return (
+            (blockPos.x & 0b1111) |
+            (blockPos.y & 0b11111111) << 4 |
+            (blockPos.z & 0b1111) << 4 + 8 |
+            (blockId & 0b1111111) << 4 + 8 + 4 |
+            (faceId & 0b111111) << 4 + 8 + 4 + 7
     )

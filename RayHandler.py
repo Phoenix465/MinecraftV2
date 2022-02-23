@@ -79,7 +79,7 @@ def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
 
                 if chunk.ChunkData[chunkPos.y, chunkPos.x, chunkPos.z, 0]:
                     #print("SuccessfuSl")
-                    return headPos, chunkPos, chunk
+                    return headPos, chunkPos, chunk, currentPos, currentPosV
 
                 break
 
@@ -97,11 +97,11 @@ def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
         # Detect Ray Only Backwards
         if dirLength == 0:
             #print("Quit Early 2", tmin, tmax, tempRay.orig, tempRay.dir)
-            return None, None, None
+            return None, None, None, None, None
 
         if length(headPos - origPos) + dirLength > maxDist:
             #print("Quit Early")
-            return None, None, None
+            return None, None, None, None, None
 
         headPos = headPos + ray.dir*dirLength*1.0001
         #print(headPos, length(headPos-origPos))

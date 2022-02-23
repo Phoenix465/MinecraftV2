@@ -1,6 +1,9 @@
+import gc
+
 import DefaultBlockHandler
 import PlayerHandler
 import RayHandler
+from BlockHandler import ClosestFace
 from degreesMath import sin, cos
 from time import perf_counter
 
@@ -29,7 +32,7 @@ def main():
     GamePaths = GamePathHandler.PathHolder()
 
     # ----- Display Settings -----
-    display = 1366, 768
+    display = 1366//2, 768//2
     displayV = glm.vec2(display)
 
     pygame.display.gl_set_attribute(GL_MULTISAMPLEBUFFERS, 1)
@@ -136,6 +139,8 @@ def main():
                 if event.button == 1:
                     mouseDestroy = True
 
+        mouseDestroy = pygame.mouse.get_pressed()[0]
+
         glUseProgram(shader)
 
         glUniformMatrix4fv(uniformView, 1, GL_FALSE,
@@ -153,8 +158,8 @@ def main():
         player.moveCamera(deltaT)
 
         #s1 = perf_counter()
-
-        hitPos, chunkPos, chunk = RayHandler.FindRayHitBlock(
+        # oldChunkPos might not be in the same chunk
+        hitPos, chunkPos, chunk, hitPosRound, hitPosRoundV = RayHandler.FindRayHitBlock(
             RayHandler.Ray(
                 player.headPos,
                 player.lookRelPos
@@ -174,13 +179,32 @@ def main():
             player.highlightBlock.VBOBlock.updateChunkBlockData()
 
             if mouseDestroy:
+                gc.disable()
+                surfaceI = ClosestFace(hitPos - hitPosRoundV)
+                newRealPos = hitPosRound + chunk.blockRelVec[surfaceI]
+                chunkAdd = None
+                addPos = None
+                for chunk in world.chunks.values():
+                    if ChunkHandler.IsPointInChunkV(chunk, newRealPos):
+                        chunkAdd = chunk
+                        addPos = newRealPos - chunk.bottomLeft
+                        break
+
                 s = perf_counter()
-                world.removeBlock(chunkPos, chunk)
-                e = perf_counter() - s
+
+                #world.removeBlock(chunkPos, chunk)
+                if chunkAdd:
+                    world.addBlock(addPos, chunkAdd, 1)
+
+                e = (perf_counter() - s) / 50_000
+                print(e*1000)
+                gc.enable()
                 destroyCounter.append(e*1000)
 
         else:
             player.highlightBlock.show = False
+
+        world.update()
 
         player.draw()
         world.drawGroups()
