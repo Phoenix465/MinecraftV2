@@ -197,7 +197,7 @@ class World:
         chunk.ChunkGroup.requireUpdateChunks = True
         chunk.requireUpdate = True
 
-        """enumerationBlockVec = enumerate(chunk.blockRelVec)
+        enumerationBlockVec = enumerate(chunk.blockRelVec)
         for i, relVec in enumerationBlockVec:
             newVec = chunkPos + relVec
 
@@ -227,7 +227,7 @@ class World:
                         newBlock[1] = self.FaceIdAdjustmentRemoval[newBlock[1]][5 - i ^ 1]
 
                         adjChunk.ChunkGroup.requireUpdateChunks = True
-                        adjChunk.requireUpdate = True"""
+                        adjChunk.requireUpdate = True
 
     def addBlock(self, chunkPos: ivec3, chunk, blockId):
         chunk.ChunkGroup.requireUpdateChunks = True

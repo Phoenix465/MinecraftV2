@@ -4,6 +4,7 @@ import DefaultBlockHandler
 import PlayerHandler
 import RayHandler
 from BlockHandler import ClosestFace
+from InputHandler import InputEvents
 from degreesMath import sin, cos
 from time import perf_counter
 
@@ -32,7 +33,7 @@ def main():
     GamePaths = GamePathHandler.PathHolder()
 
     # ----- Display Settings -----
-    display = 1366//2, 768//2
+    display = 1366, 768
     displayV = glm.vec2(display)
 
     pygame.display.gl_set_attribute(GL_MULTISAMPLEBUFFERS, 1)
@@ -104,10 +105,12 @@ def main():
     running = True
     clock = pygame.time.Clock()
 
+    inputEvent = InputEvents()
+
     world = WorldHandler.World(shader)
     world.setup()
 
-    player = PlayerHandler.Player(shader, vec3(0, 5, 0), displayV/2, world)
+    player = PlayerHandler.Player(shader, vec3(0, 5, 0), displayV/2, world, inputEvent)
 
     player.highlightBlock.chunkPos = ivec3(5, 5, 5)
     player.highlightBlock.show = True
@@ -117,10 +120,10 @@ def main():
 
     angle = 0
     radius = 5
-    rayTimes = [0]
-    destroyCounter = [0]
+
     while running:
         deltaT = clock.tick(60) / 1000
+        inputEvent.poll()
 
         times = times[:600]
         angle += 5 * deltaT
@@ -129,17 +132,7 @@ def main():
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        mouseDestroy = False
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:
-                    mouseDestroy = True
-
-        mouseDestroy = pygame.mouse.get_pressed()[0]
+        running = not inputEvent.quit
 
         glUseProgram(shader)
 
@@ -156,59 +149,12 @@ def main():
 
         player.rotateCamera()
         player.moveCamera(deltaT)
-
-        #s1 = perf_counter()
-        # oldChunkPos might not be in the same chunk
-        hitPos, chunkPos, chunk, hitPosRound, hitPosRoundV = RayHandler.FindRayHitBlock(
-            RayHandler.Ray(
-                player.headPos,
-                player.lookRelPos
-            ),
-            RayHandler.DefaultBlockAABB(),
-            player.GetCloseAdjacentChunks()
-        )
-
-        #e1 = (perf_counter() - s1)*1000/1000
-        #rayTimes.append(e1)
-        #print("Run Time", e1, "ms")
-
-        if hitPos:
-            player.highlightBlock.chunkPos = chunkPos
-            player.highlightBlock.chunkId = chunk.id
-            player.highlightBlock.show = True
-            player.highlightBlock.VBOBlock.updateChunkBlockData()
-
-            if mouseDestroy:
-                gc.disable()
-                surfaceI = ClosestFace(hitPos - hitPosRoundV)
-                newRealPos = hitPosRound + chunk.blockRelVec[surfaceI]
-                chunkAdd = None
-                addPos = None
-                for chunk in world.chunks.values():
-                    if ChunkHandler.IsPointInChunkV(chunk, newRealPos):
-                        chunkAdd = chunk
-                        addPos = newRealPos - chunk.bottomLeft
-                        break
-
-                s = perf_counter()
-
-                #world.removeBlock(chunkPos, chunk)
-                if chunkAdd:
-                    world.addBlock(addPos, chunkAdd, 1)
-
-                e = (perf_counter() - s) / 50_000
-                print(e*1000)
-                gc.enable()
-                destroyCounter.append(e*1000)
-
-        else:
-            player.highlightBlock.show = False
+        player.mouseHandler()
 
         world.update()
 
         player.draw()
         world.drawGroups()
-
 
         #print("Collision..", )
 
@@ -223,8 +169,6 @@ def main():
 
     print("Average ms Per Frame", sum(times) / len(times))
     print("Average ms Per Draw", sum(world.times) / len(world.times))
-    print("Average ms Per Ray", sum(rayTimes) / len(rayTimes))
-    print("Average ms Per Destroy", sum(destroyCounter) / len(destroyCounter))
 
 
 if __name__ == "__main__":
