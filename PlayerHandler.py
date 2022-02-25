@@ -1,3 +1,5 @@
+from time import time
+
 from glm import vec3, vec2, ivec3
 
 import ChunkHandler
@@ -10,8 +12,13 @@ from InputHandler import InputEvents
 class Player(Camera):
     def __init__(self, shader, startPos: vec3, displayCentre: vec2, world, events: InputEvents):
         super().__init__(shader, startPos, displayCentre)
+
         self.world = world
         self.events = events
+
+        self.destroyHoldLastTime = time()
+        self.destroyHoldTimeout = 1  # seconds
+        self.destroyHoldDelay = 0.1
 
     def GetCloseAdjacentChunks(self):
         returnChunks = []
@@ -32,6 +39,10 @@ class Player(Camera):
     def mouseHandler(self):
         blockRemove = self.events.MouseClickDown[0]
         blockAdd = self.events.MouseClickDown[2]
+
+        if self.events.MouseClickTiming[0] and self.events.MouseClickTiming[0] + self.destroyHoldTimeout < time() and self.destroyHoldLastTime + self.destroyHoldDelay < time():
+            self.destroyHoldLastTime = time()
+            blockRemove = True
 
         hitPos, chunkPos, chunk, hitPosRound, hitPosRoundV = RayHandler.FindRayHitBlock(
             RayHandler.Ray(

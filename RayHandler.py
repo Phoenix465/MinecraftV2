@@ -103,7 +103,7 @@ def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
             #print("Quit Early")
             return None, None, None, None, None
 
-        headPos = headPos + ray.dir*dirLength*1.0001
+        headPos = headPos + ray.dir*(dirLength+.00001)
         #print(headPos, length(headPos-origPos))
 
         currentPos = ivec3(round(headPos.x), floor(headPos.y), round(headPos.z))

@@ -1,4 +1,5 @@
 import pygame
+from time import time
 
 
 class InputEvents:
@@ -6,6 +7,7 @@ class InputEvents:
         self.quit = False
         self.MouseClickDown = [False, False, False]
         self.MouseClickUp = [False, False, False]
+        self.MouseClickTiming = [None, None, None]
 
     def reset(self):
         self.MouseClickDown = [False, False, False]
@@ -20,5 +22,8 @@ class InputEvents:
 
             if event.type == pygame.MOUSEBUTTONDOWN and 1 <= event.button <= 3:
                 self.MouseClickDown[event.button-1] = True
+                self.MouseClickTiming[event.button-1] = time()
+
             elif event.type == pygame.MOUSEBUTTONUP and 1 <= event.button <= 3:
                 self.MouseClickUp[event.button-1] = True
+                self.MouseClickTiming[event.button-1] = None

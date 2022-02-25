@@ -66,7 +66,7 @@ class World:
 
         s = perf_counter()
 
-        size = 3
+        size = 1
         chunkCounter = 0
         for chunkMultX in range(0, size):
             for chunkMultY in range(0, size):

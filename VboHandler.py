@@ -10,14 +10,15 @@ from OpenGL.GL import glGenVertexArrays, glGenBuffers, glBindVertexArray, glBind
     glVertexAttribPointer, glEnableVertexAttribArray, glVertexAttribDivisor, \
     glDrawElementsInstanced, glDrawElements, glDrawArrays, glGetAttribLocation, \
     GL_FLOAT, GL_INT, GL_FALSE, \
-    GL_TRIANGLES, GL_LINES, GL_UNSIGNED_INT, glVertexAttribIPointer, glBufferSubData
+    GL_TRIANGLES, GL_LINES, GL_UNSIGNED_INT, glVertexAttribIPointer, glBufferSubData, \
+    glEnable, glBindTexture, GL_TEXTURE_2D
 
 import typing
 from typing import Union
 
 if typing.TYPE_CHECKING:
     from ChunkHandler import Chunk, Chunk2x2
-    from UIHandler import Rectangle
+    from UIHandler import Rectangle, ImageRectangle
     from DefaultBlockHandler import DefaultBlockFaceFill, DefaultBlockLines
     from BlockHandler import HighlightBlock
 
@@ -150,3 +151,65 @@ class VBORectangle:
     def draw(self):
         glBindVertexArray(self.VAO)
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
+        glBindVertexArray(0)
+
+
+class VBOImageRectangle:
+    def __init__(self, shader, rectangle: ImageRectangle, texture):
+        self.shader = shader
+        self.rectangle = rectangle
+        self.texture = texture
+
+        self.vertices = self.rectangle.serialise()
+        self.indices = np.array(self.rectangle.indices, dtype=np.uint32).flatten()
+
+        self.VAO = glGenVertexArrays(1)  # Vertex Array Object
+        self.VBO = glGenBuffers(1)  # Vertex Buffer Object
+        self.EBO = glGenBuffers(1)  # Element Buffer Object
+
+        glBindVertexArray(self.VAO)
+
+        # Set Vertices in Block Template
+        glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
+        glBufferData(GL_ARRAY_BUFFER, 4 * len(self.vertices), self.vertices, GL_DYNAMIC_DRAW)
+
+        # Set Element Index in Block Template
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, self.EBO)
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, 4 * len(self.indices), self.indices, GL_STATIC_DRAW)
+
+        vertexStride = (2+4+2)*4
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
+        self.positionLocation = glGetAttribLocation(shader, "position")
+        glVertexAttribPointer(self.positionLocation, 2, GL_FLOAT, GL_FALSE, vertexStride, ctypes.c_void_p(0))
+        glEnableVertexAttribArray(self.positionLocation)
+
+        self.colourLocation = glGetAttribLocation(shader, "colour")
+        glVertexAttribPointer(self.colourLocation, 4, GL_FLOAT, GL_FALSE, vertexStride, ctypes.c_void_p(2*4))
+        glEnableVertexAttribArray(self.colourLocation)
+
+        self.textureCoordsLocation = glGetAttribLocation(shader, "textureCoords")
+        glVertexAttribPointer(self.textureCoordsLocation, 2, GL_FLOAT, GL_FALSE, vertexStride, ctypes.c_void_p((2+4)*4))
+        glEnableVertexAttribArray(self.textureCoordsLocation)
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0)
+        glBindVertexArray(0)
+
+    def updateChunkData(self):
+        newVertex = self.rectangle.serialise()
+
+        glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
+        glBufferData(GL_ARRAY_BUFFER, 4 * len(newVertex), newVertex, GL_DYNAMIC_DRAW)
+        glBindBuffer(GL_ARRAY_BUFFER, 0)
+
+    def draw(self):
+        glEnable(GL_TEXTURE_2D)
+
+        glBindTexture(GL_TEXTURE_2D, self.texture)
+        glBindVertexArray(self.VAO)
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, None)
+
+        glBindVertexArray(0)
+        glBindTexture(GL_TEXTURE_2D, 0)
+

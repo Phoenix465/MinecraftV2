@@ -47,6 +47,7 @@ def main():
     # ----- Shader Settings -----
     shader = ShaderLoader.compileShaders(*GamePaths.defaultShaderPaths)
     uiPlainShader = ShaderLoader.compileShaders(*GamePaths.UIPlainShaderPaths)
+    uiShader = ShaderLoader.compileShaders(*GamePaths.UIShaderPaths)
     glUseProgram(shader)
 
     uniformModel = glGetUniformLocation(shader, 'uniform_Model')
@@ -102,6 +103,7 @@ def main():
     
     # ----- Main ------
     times = [0]
+    fpsTimes = [0]
     running = True
     clock = pygame.time.Clock()
 
@@ -117,22 +119,35 @@ def main():
     player.highlightBlock.VBOBlock.updateChunkBlockData()
 
     crosshair = UIHandler.Crosshair(uiPlainShader, displayV)
+    fpsCounter = UIHandler.NumberShower(uiShader, GamePaths.scoreBasePath, 60 / displayV.y, vec2(0, 0), displayV, 3, defaultNumber="000")
 
     angle = 0
     radius = 5
 
+    frame = 0
+    targetFPS = 120
+
     while running:
-        deltaT = clock.tick(60) / 1000
+        sA = perf_counter() * 1000
+
+        frame += 1
+        if frame % 10 == 0:
+            fpsCounter.setNumber(f"{round(1000 / (sum(fpsTimes) / len(fpsTimes))):0>3}")
+
+        deltaT = clock.tick(targetFPS) / 1000
+
         inputEvent.poll()
 
-        times = times[:600]
+        times = times[len(times)-3000:]
+        fpsTimes = fpsTimes[len(fpsTimes)-300:]
         angle += 5 * deltaT
 
         s = perf_counter() * 1000
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
-        running = not inputEvent.quit
+        if inputEvent.quit:
+            running = False
 
         glUseProgram(shader)
 
@@ -151,7 +166,7 @@ def main():
         player.moveCamera(deltaT)
         player.mouseHandler()
 
-        world.update()
+        world.update(targetFPS=targetFPS)
 
         player.draw()
         world.drawGroups()
@@ -161,11 +176,16 @@ def main():
         glUseProgram(uiPlainShader)
         crosshair.draw()
 
+        glUseProgram(uiShader)
+        fpsCounter.draw()
+
         pygame.display.flip()
 
         e = perf_counter() * 1000
         ft = e - s
+        ftA = e - sA
         times.append(ft)
+        fpsTimes.append(ftA)
 
     print("Average ms Per Frame", sum(times) / len(times))
     print("Average ms Per Draw", sum(world.times) / len(world.times))
