@@ -166,7 +166,7 @@ class World:
     def update(self, targetFPS=60):
         self.frames += 1
 
-        if self.frames % (targetFPS//6) == 0:
+        if self.frames % (targetFPS//8) == 0:
             for chunkGroup in self.chunkGroups.values():
                 if chunkGroup.requireUpdateChunks:
                     chunkGroup.VBO.updateChunkBlockData(requireUpdate=True)

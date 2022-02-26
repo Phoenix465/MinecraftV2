@@ -241,8 +241,11 @@ class ChunkGroup:
         self.VBO.draw()
 
 
-def IsPointInChunkV(chunk: Chunk, pos: ivec3):
+def IsPointInChunkI(chunk: Chunk, pos: ivec3):
     return glm.all(glm.greaterThanEqual(pos, chunk.minPosI)) and glm.all(glm.lessThan(pos, chunk.maxPosI))
+
+def IsPointInChunkV(chunk: Chunk, pos: vec3):
+    return glm.all(glm.greaterThanEqual(pos, chunk.minPos)) and glm.all(glm.lessThan(pos, chunk.maxPos))
 
 
 @lru_cache(maxsize=None)

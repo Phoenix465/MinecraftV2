@@ -112,13 +112,12 @@ def main():
     world = WorldHandler.World(shader)
     world.setup()
 
-    player = PlayerHandler.Player(shader, vec3(0, 5, 0), displayV/2, world, inputEvent)
+    player = PlayerHandler.Player(shader, uiPlainShader, vec3(0, 5, 0), displayV/2, world, inputEvent)
 
     player.highlightBlock.chunkPos = ivec3(5, 5, 5)
     player.highlightBlock.show = True
     player.highlightBlock.VBOBlock.updateChunkBlockData()
 
-    crosshair = UIHandler.Crosshair(uiPlainShader, displayV)
     fpsCounter = UIHandler.NumberShower(uiShader, GamePaths.scoreBasePath, 60 / displayV.y, vec2(0, 0), displayV, 3, defaultNumber="000")
 
     angle = 0
@@ -135,7 +134,6 @@ def main():
             fpsCounter.setNumber(f"{round(1000 / (sum(fpsTimes) / len(fpsTimes))):0>3}")
 
         deltaT = clock.tick(targetFPS) / 1000
-
         inputEvent.poll()
 
         times = times[len(times)-3000:]
@@ -165,6 +163,7 @@ def main():
         player.rotateCamera()
         player.moveCamera(deltaT)
         player.mouseHandler()
+        player.movementHandler(deltaT)
 
         world.update(targetFPS=targetFPS)
 
@@ -174,7 +173,7 @@ def main():
         #print("Collision..", )
 
         glUseProgram(uiPlainShader)
-        crosshair.draw()
+        player.drawCrosshair()
 
         glUseProgram(uiShader)
         fpsCounter.draw()

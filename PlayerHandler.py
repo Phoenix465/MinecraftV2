@@ -10,8 +10,8 @@ from InputHandler import InputEvents
 
 
 class Player(Camera):
-    def __init__(self, shader, startPos: vec3, displayCentre: vec2, world, events: InputEvents):
-        super().__init__(shader, startPos, displayCentre)
+    def __init__(self, shader, uiPlainShader, startPos: vec3, displayCentre: vec2, world, events: InputEvents):
+        super().__init__(shader, uiPlainShader, startPos, displayCentre)
 
         self.world = world
         self.events = events
@@ -19,6 +19,15 @@ class Player(Camera):
         self.destroyHoldLastTime = time()
         self.destroyHoldTimeout = 1  # seconds
         self.destroyHoldDelay = 0.1
+        
+        self.addHoldLastTime = time()
+        self.addHoldTimeout = 1  # seconds
+        self.addHoldDelay = 0.1
+        
+        self.gravity = 9.8
+        self.gravityVelocity = 0
+        self.gravityMaxVelocity = 55.555
+        self.gravityRay = RayHandler.Ray(self.headPos, vec3(0, -1, 0))
 
     def GetCloseAdjacentChunks(self):
         returnChunks = []
@@ -44,6 +53,10 @@ class Player(Camera):
             self.destroyHoldLastTime = time()
             blockRemove = True
 
+        if self.events.MouseClickTiming[2] and self.events.MouseClickTiming[2] + self.addHoldTimeout < time() and self.addHoldLastTime + self.addHoldDelay < time():
+            self.addHoldLastTime = time()
+            blockAdd = True
+
         hitPos, chunkPos, chunk, hitPosRound, hitPosRoundV = RayHandler.FindRayHitBlock(
             RayHandler.Ray(
                 self.headPos,
@@ -59,18 +72,46 @@ class Player(Camera):
             self.highlightBlock.show = True
             self.highlightBlock.VBOBlock.updateChunkBlockData()
 
+            if blockRemove:
+                self.world.removeBlock(chunkPos, chunk)
+
             if blockAdd:
                 surfaceI = ClosestFace(hitPos - hitPosRoundV)
                 newRealPos = hitPosRound + chunk.blockRelVec[surfaceI]
 
                 for chunk in self.world.chunks.values():
-                    if ChunkHandler.IsPointInChunkV(chunk, newRealPos):
+                    if ChunkHandler.IsPointInChunkI(chunk, newRealPos):
                         addPos = newRealPos - chunk.bottomLeft
                         self.world.addBlock(addPos, chunk, 1)
 
                         break
-            if blockRemove:
-                self.world.removeBlock(chunkPos, chunk)
 
         else:
             self.highlightBlock.show = False
+
+    def movementHandler(self, dt):
+        adjHead = self.headPos * vec3(1, 0, 1)
+        currentChunk = None
+        for chunk in self.world.chunks.values():
+            if ChunkHandler.IsPointInChunkV(chunk, adjHead):
+                currentChunk = chunk
+                break
+
+        if currentChunk:
+            self.gravityRay.orig = self.headPos
+            gravRange = 2
+            hitPos, *_ = RayHandler.FindRayHitBlock(self.gravityRay, RayHandler.DefaultBlockAABB(), [currentChunk], maxDist=gravRange)
+
+            if hitPos:
+                self.headPos = hitPos + vec3(0, gravRange, 0)
+                self.gravityVelocity = 0
+
+            else:
+                self.gravityVelocity = max(-self.gravityMaxVelocity, self.gravityVelocity - self.gravity * dt)
+                #self.gravityVelocity = self.gravityVelocity - self.gravity * dt
+
+                #print(self.gravityVelocity, self.headPos.y)
+                distance = self.gravityVelocity * dt
+                self.headPos += vec3(0, distance, 0)
+
+

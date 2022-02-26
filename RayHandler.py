@@ -5,7 +5,7 @@ from glm import vec3, isinf, normalize, ivec3, length
 from glm import round as glmRound
 from line_profiler_pycharm import profile
 
-from ChunkHandler import IsPointInChunkV
+from ChunkHandler import IsPointInChunkI
 
 
 # Axis Aligned Bounding Box
@@ -71,7 +71,7 @@ def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
         #print("Iteration")
 
         for chunk in closeChunks:
-            if IsPointInChunkV(chunk, currentPos):
+            if IsPointInChunkI(chunk, currentPos):
                 chunkPos = currentPos - chunk.bottomLeft
 
                 if not 0 <= chunkPos.y < chunk.ySize:
