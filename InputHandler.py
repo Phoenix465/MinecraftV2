@@ -10,7 +10,7 @@ class InputEvents:
         self.MouseClickUp = [False, False, False]
         self.MouseClickTiming = [None, None, None]
 
-        self.WASD = [pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d]
+        self.WASDKeys = [pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d]
         self.WASDHold = [False, False, False, False]
 
     def reset(self):
@@ -34,5 +34,5 @@ class InputEvents:
                 self.MouseClickUp[event.button-1] = True
                 self.MouseClickTiming[event.button-1] = None
 
-        for i, key in enumerate(self.WASD):
+        for i, key in enumerate(self.WASDKeys):
             self.WASDHold[i] = keysPressed[key]

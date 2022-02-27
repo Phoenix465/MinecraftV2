@@ -161,7 +161,7 @@ def main():
         glUniform3f(uniformLightPos, sin(angle)*radius, 16, cos(angle)*radius)
 
         player.rotateCamera()
-        player.moveCamera(deltaT)
+        #player.moveCamera(deltaT)
         player.mouseHandler()
         player.movementHandler(deltaT)
 

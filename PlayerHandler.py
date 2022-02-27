@@ -1,12 +1,14 @@
 from time import time
 
-from glm import vec3, vec2, ivec3
+from glm import vec3, vec2, ivec3, normalize, length, cross
 
 import ChunkHandler
 import RayHandler
-from BlockHandler import HighlightBlock, ClosestFace
+from BlockHandler import HighlightBlock, ClosestFace, ClosestFaceSides
 from CameraHandler import Camera
+from DefaultBlockHandler import MoveAlongBlock
 from InputHandler import InputEvents
+from degreesMath import sin, cos
 
 
 class Player(Camera):
@@ -24,7 +26,7 @@ class Player(Camera):
         self.addHoldTimeout = 1  # seconds
         self.addHoldDelay = 0.1
         
-        self.gravity = 9.8
+        self.gravity = 9.8*2.9
         self.gravityVelocity = 0
         self.gravityMaxVelocity = 55.555
         self.gravityRay = RayHandler.Ray(self.headPos, vec3(0, -1, 0))
@@ -90,6 +92,7 @@ class Player(Camera):
             self.highlightBlock.show = False
 
     def movementHandler(self, dt):
+        # Gravity
         adjHead = self.headPos * vec3(1, 0, 1)
         currentChunk = None
         for chunk in self.world.chunks.values():
@@ -107,6 +110,7 @@ class Player(Camera):
                 self.gravityVelocity = 0
 
             else:
+                #adjGravity = ()
                 self.gravityVelocity = max(-self.gravityMaxVelocity, self.gravityVelocity - self.gravity * dt)
                 #self.gravityVelocity = self.gravityVelocity - self.gravity * dt
 
@@ -114,4 +118,85 @@ class Player(Camera):
                 distance = self.gravityVelocity * dt
                 self.headPos += vec3(0, distance, 0)
 
+        # WASDKeys Movement
+        directionalXVector = vec3(
+            sin(-self.rotX),
+            0,
+            cos(-self.rotX)
+        )
 
+        directionalZVector = vec3(
+            sin(-self.rotX - 90),
+            0,
+            cos(-self.rotX - 90)
+        )
+
+        frameDistance = self.speed * dt
+        directionalNXVector = normalize(directionalXVector) * frameDistance
+        directionalNZVector = normalize(directionalZVector) * frameDistance
+
+        moveDirections = [-directionalNXVector, directionalNZVector, directionalNXVector, -directionalNZVector]
+        resultantMove = vec3(0, 0, 0)
+
+        for i, keyMove in enumerate(self.events.WASDHold):
+            if keyMove:
+                resultantMove += moveDirections[i]
+
+        if not length(resultantMove) == 0:
+            moveRay = RayHandler.Ray(
+                self.headPos,
+                resultantMove
+            )
+
+            thickness = 0.25
+            perpendicularMove = normalize(cross(resultantMove, vec3(0, 1, 0)))
+
+            rayPositions = [
+                self.headPos,
+                self.headPos +  perpendicularMove * thickness,
+                self.headPos + -perpendicularMove * thickness
+            ]
+            rayHits = [None, None, None]
+            rayHitsRoundV = [None, None, None]
+
+            defaultBlock, closeChunks = RayHandler.DefaultBlockAABB(), self.GetCloseAdjacentChunks()
+
+            for i, newHeadPos in enumerate(rayPositions):
+                moveRay.orig = newHeadPos
+    
+                hitPos, *_, hitPosRoundV = RayHandler.FindRayHitBlock(
+                    moveRay,
+                    defaultBlock,
+                    closeChunks,
+                    maxDist=0.5
+                )
+
+                if hitPos:
+                    rayHits[i] = hitPos
+                    rayHitsRoundV[i] = hitPosRoundV
+
+            if not any(rayHits):
+                self.headPos += resultantMove
+            else:
+                if rayHits[0]:
+                    targetPos = rayHits[0]
+                    targetSurfaceI = ClosestFaceSides(targetPos - rayHitsRoundV[0])
+
+                else:
+                    newPos = self.headPos + resultantMove
+                    distances = [(length(pos-newPos) if pos else 999) for pos in rayHits[1:]]
+
+                    if min(distances) == 999:
+                        return
+
+                    pointIndex = 1+distances.index(min(distances))
+                    targetPos = rayHits[pointIndex]
+                    targetSurfaceI = ClosestFaceSides(targetPos - rayHitsRoundV[pointIndex])
+
+                adjResultantNMove = MoveAlongBlock.moves[targetSurfaceI]
+                possibleRelPos = [adjResultantNMove, -adjResultantNMove]
+                possibleRelPosLengths = [length(relPos - resultantMove) for relPos in possibleRelPos]
+
+                self.headPos += adjResultantNMove * length(resultantMove) * (
+                    -1 if possibleRelPosLengths.index(min(possibleRelPosLengths)) else 1
+                )

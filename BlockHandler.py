@@ -64,3 +64,10 @@ def ClosestFace(point: vec3):
     minDist = min(distanceD.keys())
 
     return distanceD[minDist]
+
+
+def ClosestFaceSides(point: vec3):
+    distanceD = {length(point - centre): i for i, centre in enumerate(CentreBlock.centres) if i >= 2}
+    minDist = min(distanceD.keys())
+
+    return distanceD[minDist]

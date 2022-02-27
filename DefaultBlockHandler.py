@@ -150,3 +150,16 @@ class CentreBlock:
         vec3(0, 0.5, 0.5),
         vec3(0, 0.5, -0.5),
     ]
+
+
+class MoveAlongBlock:
+    moves = [
+        None,
+        None,
+
+        vec3(0, 0, 1),
+        vec3(0, 0, 1),
+
+        vec3(1, 0, 0),
+        vec3(1, 0, 0),
+    ]

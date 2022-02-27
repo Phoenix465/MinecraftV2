@@ -27,7 +27,7 @@ class Camera:
 
         self.lookAtMatrix = self.getLookAtMatrix()
 
-        self.distance = 5
+        self.speed = 5
         self.sensitivity = 0.05
 
         self.highlightBlock = HighlightBlock(shader)
@@ -80,7 +80,7 @@ class Camera:
             cos(-self.rotX - 90)
         )
 
-        frameDistance = self.distance * dt
+        frameDistance = self.speed * dt
         directionalXVector = normalize(directionalXVector) * frameDistance
         directionalZVector = normalize(directionalZVector) * frameDistance
 
