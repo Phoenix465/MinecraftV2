@@ -6,7 +6,7 @@ import ChunkHandler
 import RayHandler
 from BlockHandler import HighlightBlock, ClosestFace, ClosestFaceSides
 from CameraHandler import Camera
-from DefaultBlockHandler import MoveAlongBlock
+from DefaultBlockHandler import BlockSurfaceNullification
 from InputHandler import InputEvents
 from degreesMath import sin, cos
 
@@ -19,11 +19,11 @@ class Player(Camera):
         self.events = events
 
         self.destroyHoldLastTime = time()
-        self.destroyHoldTimeout = 1  # seconds
+        self.destroyHoldTimeout = 0.6  # seconds
         self.destroyHoldDelay = 0.1
         
         self.addHoldLastTime = time()
-        self.addHoldTimeout = 1  # seconds
+        self.addHoldTimeout = 0.6   # seconds
         self.addHoldDelay = 0.1
         
         self.gravity = 9.8*2.9
@@ -148,7 +148,7 @@ class Player(Camera):
                 resultantMove
             )
 
-            thickness = 0.25
+            thickness = 0.3
             perpendicularMove = normalize(cross(resultantMove, vec3(0, 1, 0)))
 
             rayPositions = [
@@ -156,15 +156,16 @@ class Player(Camera):
                 self.headPos +  perpendicularMove * thickness,
                 self.headPos + -perpendicularMove * thickness
             ]
-            rayHits = [None, None, None]
-            rayHitsRoundV = [None, None, None]
+            rayHitsChunkPos = [None, None, None]
+            rayHitSurfaceFaceI = [None, None, None]
+            validChunkPos = None
 
             defaultBlock, closeChunks = RayHandler.DefaultBlockAABB(), self.GetCloseAdjacentChunks()
 
             for i, newHeadPos in enumerate(rayPositions):
                 moveRay.orig = newHeadPos
     
-                hitPos, *_, hitPosRoundV = RayHandler.FindRayHitBlock(
+                hitPos, hitChunkPos, *_, hitPosRoundV = RayHandler.FindRayHitBlock(
                     moveRay,
                     defaultBlock,
                     closeChunks,
@@ -172,31 +173,20 @@ class Player(Camera):
                 )
 
                 if hitPos:
-                    rayHits[i] = hitPos
-                    rayHitsRoundV[i] = hitPosRoundV
+                    rayHitsChunkPos[i] = hitChunkPos
+                    validChunkPos = hitChunkPos
+                    rayHitSurfaceFaceI[i] = ClosestFaceSides(hitPos - hitPosRoundV)
 
-            if not any(rayHits):
-                self.headPos += resultantMove
+            print(rayHitsChunkPos, rayHitSurfaceFaceI)
+            filterChunkPos = [pos for pos in rayHitsChunkPos if pos is not None]
+            filterSurfaceI = [faceI for faceI in rayHitSurfaceFaceI if faceI is not None]
+
+            if validChunkPos and all([chunkPos == validChunkPos for chunkPos in filterChunkPos]):
+                surfaceI = max(set(filterSurfaceI), key=filterSurfaceI.count)
+                resultantMove *= BlockSurfaceNullification.multiplier[surfaceI]
             else:
-                if rayHits[0]:
-                    targetPos = rayHits[0]
-                    targetSurfaceI = ClosestFaceSides(targetPos - rayHitsRoundV[0])
+                for surfaceI in rayHitSurfaceFaceI:
+                    if surfaceI:
+                        resultantMove *= BlockSurfaceNullification.multiplier[surfaceI]
 
-                else:
-                    newPos = self.headPos + resultantMove
-                    distances = [(length(pos-newPos) if pos else 999) for pos in rayHits[1:]]
-
-                    if min(distances) == 999:
-                        return
-
-                    pointIndex = 1+distances.index(min(distances))
-                    targetPos = rayHits[pointIndex]
-                    targetSurfaceI = ClosestFaceSides(targetPos - rayHitsRoundV[pointIndex])
-
-                adjResultantNMove = MoveAlongBlock.moves[targetSurfaceI]
-                possibleRelPos = [adjResultantNMove, -adjResultantNMove]
-                possibleRelPosLengths = [length(relPos - resultantMove) for relPos in possibleRelPos]
-
-                self.headPos += adjResultantNMove * length(resultantMove) * (
-                    -1 if possibleRelPosLengths.index(min(possibleRelPosLengths)) else 1
-                )
+            self.headPos += resultantMove

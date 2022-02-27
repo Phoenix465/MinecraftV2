@@ -152,14 +152,14 @@ class CentreBlock:
     ]
 
 
-class MoveAlongBlock:
-    moves = [
-        None,
-        None,
+class BlockSurfaceNullification:
+    multiplier = [
+        vec3(1, 1, 1),
+        vec3(1, 1, 1),
 
-        vec3(0, 0, 1),
-        vec3(0, 0, 1),
+        vec3(0, 1, 1),
+        vec3(0, 1, 1),
 
-        vec3(1, 0, 0),
-        vec3(1, 0, 0),
+        vec3(1, 1, 0),
+        vec3(1, 1, 0),
     ]
