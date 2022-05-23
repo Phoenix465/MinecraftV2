@@ -60,7 +60,7 @@ class Crosshair:
         lengthW = length / displayV.x
         lengthH = length / displayV.y
 
-        colour = vec4(1, 1, 1, 0.5)
+        colour = vec4(1, 1, 1, 1)
 
         self.crosshairRectangles = [
             Rectangle(shader, vec2(0, 0), vec2(thicknessW*2, thicknessH*2), colour, anchor=vec2(0.5, 0.5)),

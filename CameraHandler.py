@@ -19,6 +19,7 @@ from glm import vec3, vec2, mat4, rotate, translate, normalize, length
 class Camera:
     def __init__(self, shader, uiPlainShader, startPos: vec3, displayCentre: vec2):
         self.headPos = startPos
+
         self.lookRelPos = vec3()
         self.upVector = vec3(0, 1, 0)
 

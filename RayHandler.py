@@ -35,6 +35,19 @@ class Ray:
         ]
 
 
+class AxisNullificationVectors:
+    multiplier = [
+        vec3(0, 1, 0),
+        vec3(1, 0, 0),
+        vec3(0, 0, 1),
+    ]
+    inverse = [
+        vec3(1, 0, 1),
+        vec3(0, 1, 1),
+        vec3(1, 1, 0),
+    ]
+
+
 #@profile
 def RayBoxIntersect(box: AABB, ray: Ray):
     bounds = box.bounds
@@ -57,7 +70,7 @@ def RayBoxIntersect(box: AABB, ray: Ray):
     return True, tmin, tmax
 
 
-def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
+def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10, debug=False):
     #print("Init", ray.orig, ray.dir)
     origPos = ray.orig
     headPos = vec3(ray.orig)
@@ -66,6 +79,7 @@ def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
     currentPosV = vec3(currentPos)
 
     tempRay = Ray(ray.orig, ray.dir)
+    i = 0
 
     while True:
         #print("Iteration")
@@ -79,6 +93,9 @@ def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
 
                 if chunk.ChunkData[chunkPos.y, chunkPos.x, chunkPos.z, 0]:
                     #print("SuccessfuSl")
+                    if debug:
+                        print(f"Ray {i}")
+
                     return headPos, chunkPos, chunk, currentPos, currentPosV
 
                 break
@@ -108,3 +125,5 @@ def FindRayHitBlock(ray: Ray, box: AABB, closeChunks, maxDist=10):
 
         currentPos = ivec3(round(headPos.x), floor(headPos.y), round(headPos.z))
         currentPosV = vec3(currentPos)
+
+        i += 1

@@ -33,7 +33,8 @@ def main():
     GamePaths = GamePathHandler.PathHolder()
 
     # ----- Display Settings -----
-    display = 1366, 768
+    display = 1366//2, 768//2
+    # display = 1366, 768
     displayV = glm.vec2(display)
 
     pygame.display.gl_set_attribute(GL_MULTISAMPLEBUFFERS, 1)
@@ -55,7 +56,7 @@ def main():
     uniformProjection = glGetUniformLocation(shader, 'uniform_Projection')
     uniformLightPos = glGetUniformLocation(shader, 'uniform_LightPos')
 
-    projectionMatrix = glm.perspective(70, displayV.x / displayV.y, 0.1, 1000.0)
+    projectionMatrix = glm.perspective(70, displayV.x / displayV.y, 0.1, 1600.0)
     modelMatrix = glm.mat4(1)
 
     glUniformMatrix4fv(uniformModel, 1, GL_FALSE,
@@ -97,7 +98,7 @@ def main():
 
     #glDisable(GL_CULL_FACE)
     glCullFace(GL_FRONT_AND_BACK)
-    #   glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
+    #glPolygonMode(GL_FRONT_AND_BACK, GL_LINE)
 
     glClearColor(0.5294, 0.8078, 0.9216, 1.0)
     
@@ -112,7 +113,7 @@ def main():
     world = WorldHandler.World(shader)
     world.setup()
 
-    player = PlayerHandler.Player(shader, uiPlainShader, vec3(0, 5, 0), displayV/2, world, inputEvent)
+    player = PlayerHandler.Player(shader, uiPlainShader, vec3(0.1, 20, 0.1), displayV/2, world, inputEvent)
 
     player.highlightBlock.chunkPos = ivec3(5, 5, 5)
     player.highlightBlock.show = True
@@ -124,7 +125,7 @@ def main():
     radius = 5
 
     frame = 0
-    targetFPS = 120
+    targetFPS = 60
 
     while running:
         sA = perf_counter() * 1000
@@ -136,8 +137,8 @@ def main():
         deltaT = clock.tick(targetFPS) / 1000
         inputEvent.poll()
 
-        times = times[len(times)-3000:]
-        fpsTimes = fpsTimes[len(fpsTimes)-300:]
+        times = times[len(times)-targetFPS*50:]
+        fpsTimes = fpsTimes[len(fpsTimes)-targetFPS*5:]
         angle += 5 * deltaT
 
         s = perf_counter() * 1000
@@ -173,7 +174,9 @@ def main():
         #print("Collision..", )
 
         glUseProgram(uiPlainShader)
+        glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ZERO)
         player.drawCrosshair()
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
         glUseProgram(uiShader)
         fpsCounter.draw()

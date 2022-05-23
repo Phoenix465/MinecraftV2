@@ -1,5 +1,6 @@
 from time import time
 
+import glm
 from glm import vec3, vec2, ivec3, normalize, length, cross
 
 import ChunkHandler
@@ -18,6 +19,8 @@ class Player(Camera):
         self.world = world
         self.events = events
 
+        self.cameraHeight = 1.5
+
         self.destroyHoldLastTime = time()
         self.destroyHoldTimeout = 0.6  # seconds
         self.destroyHoldDelay = 0.1
@@ -26,10 +29,36 @@ class Player(Camera):
         self.addHoldTimeout = 0.6   # seconds
         self.addHoldDelay = 0.1
         
-        self.gravity = 9.8*2.9
         self.gravityVelocity = 0
-        self.gravityMaxVelocity = 55.555
-        self.gravityRay = RayHandler.Ray(self.headPos, vec3(0, -1, 0))
+
+        collisionRadius = 0.3
+        self.relativePositions = [
+            vec3(-collisionRadius, -self.cameraHeight, collisionRadius),  # 0
+            vec3(collisionRadius, -self.cameraHeight, collisionRadius),  # 1
+            vec3(collisionRadius, -self.cameraHeight, -collisionRadius),  # 2
+            vec3(-collisionRadius, -self.cameraHeight, -collisionRadius),  # 3
+
+            vec3(-collisionRadius, 0, collisionRadius),  # 4
+            vec3(collisionRadius, 0, collisionRadius),  # 5
+            vec3(collisionRadius, 0, -collisionRadius),  # 6
+            vec3(-collisionRadius, 0, -collisionRadius),  # 7
+        ]
+
+        self.relativePositionPriority = {
+            # Y: Up/Down
+            (1, -1): [(0, 1, 2, 3), (4, 5, 6, 7)],
+            (1, 1): [(4, 5, 6, 7), (0, 1, 2, 3)],
+
+            # X: Right/Left
+            (0, 1): [(1, 2, 5, 6), (0, 3, 4, 7)],
+            (0, -1): [(0, 3, 4, 7), (1, 2, 5, 6)],
+
+            # Z: Forward/Backwards (To You)
+            (2, 1): [(0, 1, 4, 5), (2, 3, 6, 7)],
+            (2, -1): [(2, 3, 6, 7), (0, 1, 4, 5)],
+        }
+
+        self.timeSinceGravityUpdate = time()
 
     def GetCloseAdjacentChunks(self):
         returnChunks = []
@@ -83,6 +112,16 @@ class Player(Camera):
 
                 for chunk in self.world.chunks.values():
                     if ChunkHandler.IsPointInChunkI(chunk, newRealPos):
+                        minC = vec3(newRealPos) - vec3(0.5, 0, 0.5)
+                        maxC = vec3(newRealPos) + vec3(0.5, 1, 0.5)
+
+                        pMin = self.headPos + self.relativePositions[3]
+                        pMax = self.headPos + self.relativePositions[5]
+
+                        # Find if Player will Collide with Block Placement
+                        if glm.all(glm.lessThan(minC, pMax)) and glm.all(glm.greaterThan(maxC, pMin)):
+                            break
+
                         addPos = newRealPos - chunk.bottomLeft
                         self.world.addBlock(addPos, chunk, 1)
 
@@ -92,31 +131,7 @@ class Player(Camera):
             self.highlightBlock.show = False
 
     def movementHandler(self, dt):
-        # Gravity
-        adjHead = self.headPos * vec3(1, 0, 1)
-        currentChunk = None
-        for chunk in self.world.chunks.values():
-            if ChunkHandler.IsPointInChunkV(chunk, adjHead):
-                currentChunk = chunk
-                break
-
-        if currentChunk:
-            self.gravityRay.orig = self.headPos
-            gravRange = 2
-            hitPos, *_ = RayHandler.FindRayHitBlock(self.gravityRay, RayHandler.DefaultBlockAABB(), [currentChunk], maxDist=gravRange)
-
-            if hitPos:
-                self.headPos = hitPos + vec3(0, gravRange, 0)
-                self.gravityVelocity = 0
-
-            else:
-                #adjGravity = ()
-                self.gravityVelocity = max(-self.gravityMaxVelocity, self.gravityVelocity - self.gravity * dt)
-                #self.gravityVelocity = self.gravityVelocity - self.gravity * dt
-
-                #print(self.gravityVelocity, self.headPos.y)
-                distance = self.gravityVelocity * dt
-                self.headPos += vec3(0, distance, 0)
+        movementVector = vec3(0, 0, 0)
 
         # WASDKeys Movement
         directionalXVector = vec3(
@@ -136,57 +151,110 @@ class Player(Camera):
         directionalNZVector = normalize(directionalZVector) * frameDistance
 
         moveDirections = [-directionalNXVector, directionalNZVector, directionalNXVector, -directionalNZVector]
-        resultantMove = vec3(0, 0, 0)
 
         for i, keyMove in enumerate(self.events.WASDHold):
             if keyMove:
-                resultantMove += moveDirections[i]
+                movementVector += moveDirections[i]
 
-        if not length(resultantMove) == 0:
+        # Gravity
+        tick = 1/20
+        if time() > self.timeSinceGravityUpdate + tick:
+            self.timeSinceGravityUpdate = time()
+            self.gravityVelocity = (self.gravityVelocity - 0.08) * 0.98
+            print(self.gravityVelocity)
+        movementVector += vec3(0, self.gravityVelocity * (dt / tick), 0)
+
+        defaultBlock, closeChunks = RayHandler.DefaultBlockAABB(), self.GetCloseAdjacentChunks()
+
+        multipliers = [
+            vec3(0, 1, 0),
+            vec3(0, 0, 1),
+            vec3(1, 0, 0),
+        ]
+        inverse = [
+            vec3(1, 0, 1),
+            vec3(1, 1, 0),
+            vec3(0, 1, 1),
+        ]
+        vectorIndexOrder = [
+            1,  # Y
+            2,  # Z
+            0  # X
+        ]
+
+        if movementVector.z > movementVector.x:
+            multipliers[1], multipliers[2] = multipliers[2], multipliers[1]
+            inverse[1], inverse[2] = inverse[2], inverse[1]
+            vectorIndexOrder[1], vectorIndexOrder[2] = vectorIndexOrder[2], vectorIndexOrder[1]
+
+        collisionIndex = [False, False, False]
+        for vI, vMultiplier in enumerate(multipliers):
+            movementDirection = movementVector * vMultiplier
+
+            if length(movementDirection) == 0:
+                continue
+
             moveRay = RayHandler.Ray(
-                self.headPos,
-                resultantMove
+                orig=self.headPos,
+                dir=movementDirection
             )
 
-            thickness = 0.3
-            perpendicularMove = normalize(cross(resultantMove, vec3(0, 1, 0)))
+            didCollide = False
+            distanceCollisions = []
+            distanceI = []
 
-            rayPositions = [
-                self.headPos,
-                self.headPos +  perpendicularMove * thickness,
-                self.headPos + -perpendicularMove * thickness
-            ]
-            rayHitsChunkPos = [None, None, None]
-            rayHitSurfaceFaceI = [None, None, None]
-            validChunkPos = None
+            s = time()
+            for i, relPos in enumerate(self.relativePositions):
+                moveRay.orig = self.headPos + relPos
 
-            defaultBlock, closeChunks = RayHandler.DefaultBlockAABB(), self.GetCloseAdjacentChunks()
-
-            for i, newHeadPos in enumerate(rayPositions):
-                moveRay.orig = newHeadPos
-    
-                hitPos, hitChunkPos, *_, hitPosRoundV = RayHandler.FindRayHitBlock(
+                hitPos, *_, hitPosRoundV = RayHandler.FindRayHitBlock(
                     moveRay,
                     defaultBlock,
                     closeChunks,
-                    maxDist=0.5
+                    maxDist=abs(movementDirection[vectorIndexOrder[vI]]),
+                    debug=False
                 )
 
                 if hitPos:
-                    rayHitsChunkPos[i] = hitChunkPos
-                    validChunkPos = hitChunkPos
-                    rayHitSurfaceFaceI[i] = ClosestFaceSides(hitPos - hitPosRoundV)
+                    didCollide = True
 
-            print(rayHitsChunkPos, rayHitSurfaceFaceI)
-            filterChunkPos = [pos for pos in rayHitsChunkPos if pos is not None]
-            filterSurfaceI = [faceI for faceI in rayHitSurfaceFaceI if faceI is not None]
+                    # Not Instant Collide
+                    if length(hitPos-moveRay.orig):
+                        # True Correction
+                        relBPos = moveRay.dir * -vec3(0.5, 1, 0.5)
+                        hitPos = hitPos*inverse[vI] + (hitPosRoundV+relBPos)*multipliers[vI]
 
-            if validChunkPos and all([chunkPos == validChunkPos for chunkPos in filterChunkPos]):
-                surfaceI = max(set(filterSurfaceI), key=filterSurfaceI.count)
-                resultantMove *= BlockSurfaceNullification.multiplier[surfaceI]
+                    distanceCollisions.append(length(hitPos-moveRay.orig))
+                    distanceI.append(i)
+
+            e = time() - s
+
+            if not didCollide:
+                self.headPos += movementDirection
             else:
-                for surfaceI in rayHitSurfaceFaceI:
-                    if surfaceI:
-                        resultantMove *= BlockSurfaceNullification.multiplier[surfaceI]
+                vectorCheckIndex = vectorIndexOrder[vI]
+                direction = round(moveRay.dir[vectorCheckIndex])
 
-            self.headPos += resultantMove
+                priorityDistanceGroup = []
+                priorityI = []
+                for priorityGroup in self.relativePositionPriority[(vectorCheckIndex, direction)]:
+                    foundRay = False
+                    for rayIndex in priorityGroup:
+                        if rayIndex in distanceI:
+                            foundRay = True
+                            priorityDistanceGroup.append(distanceCollisions[distanceI.index(rayIndex)])
+                            priorityI.append(rayIndex)
+                    if foundRay:
+                        break
+
+                minimumDistance = min(priorityDistanceGroup)
+                searchIndex = priorityI[priorityDistanceGroup.index(minimumDistance)]
+                # print(vI, searchIndex, priorityDistanceGroup, self.headPos - vec3(0, self.cameraHeight, 0))
+                # self.headPos += movementDirection
+                self.headPos += moveRay.dir * max(minimumDistance - 0.001, 0)
+                # print(self.headPos, movementDirection, minimumDistance)
+
+                collisionIndex[vectorCheckIndex] = True
+
+        if collisionIndex[1]:
+            self.gravityVelocity = 0

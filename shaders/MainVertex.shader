@@ -12,7 +12,7 @@ in float vertexFaceType;
 in uint packed_X_Y_Z_BlockId_FaceBitMaskId;
 in uint chunkId;
 
-out BLOCKDATA {
+flat out BLOCKDATA {
     int valid;
 } blockData;
 

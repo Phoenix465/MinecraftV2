@@ -4,7 +4,7 @@ uniform vec3 uniform_LightPos = vec3(0, 16, 0);
 uniform vec3 uniform_LightColor = vec3(1, 1, 1);
 uniform float uniform_AmbientStrength = 0.5;
 
-in BLOCKDATA {
+flat in BLOCKDATA {
     int valid;
 } blockData;
 in vec4 fragColor;
