@@ -16,8 +16,9 @@ from pygame.mouse import set_pos, get_pos
 from glm import vec3, vec2, mat4, rotate, translate, normalize, length
 
 
-class Camera:
-    def __init__(self, shader, uiPlainShader, startPos: vec3, displayCentre: vec2):
+class Camera(object):
+    def __init__(self, shader=None, uiPlainShader=None, startPos: vec3=None, displayCentre: vec2=None, **kwargs):
+        super(Camera, self).__init__(**kwargs)
         self.headPos = startPos
 
         self.lookRelPos = vec3()
@@ -29,7 +30,7 @@ class Camera:
         self.lookAtMatrix = self.getLookAtMatrix()
 
         self.speed = 5
-        self.sensitivity = 0.05
+        self.sensitivity = 0.1
 
         self.highlightBlock = HighlightBlock(shader)
         self.crosshair = UIHandler.Crosshair(uiPlainShader, displayCentre*2)

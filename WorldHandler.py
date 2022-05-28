@@ -5,11 +5,14 @@ from line_profiler_pycharm import profile
 from opensimplex import OpenSimplex
 from random import randint
 from glm import vec3, ivec3
+
+import TagHandler
 from ChunkHandler import Chunk, ChunkGroup, SerializeBlockData, SerializeBlockDataU
 from DefaultBlockHandler import DefaultBlockFaceFill
 from OpenGL.GL import glUniform3f, glGetUniformLocation
 
 
+@TagHandler.ClassTag("World")
 class World:
     def __init__(self, shader):
         self.shader = shader
@@ -163,15 +166,14 @@ class World:
             e = perf_counter() - s
             print(f"Serializing {i} Group Chunk", e*1000)
 
-    def update(self, targetFPS=60):
-        self.frames += 1
+    @TagHandler.FunctionTag("world-chunk-update-tick")
+    @TagHandler.FunctionTag("main-thread")
+    def update(self):
+        for chunkGroup in self.chunkGroups.values():
+            if chunkGroup.requireUpdateChunks:
+                chunkGroup.VBO.updateChunkBlockData(requireUpdate=True)
 
-        if self.frames % (targetFPS//8) == 0:
-            for chunkGroup in self.chunkGroups.values():
-                if chunkGroup.requireUpdateChunks:
-                    chunkGroup.VBO.updateChunkBlockData(requireUpdate=True)
-
-                chunkGroup.requireUpdateChunks = False
+            chunkGroup.requireUpdateChunks = False
 
     def draw(self):
         s = perf_counter()

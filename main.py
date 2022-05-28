@@ -1,8 +1,10 @@
 import gc
 
 import DefaultBlockHandler
+import Enumerations
 import PlayerHandler
 import RayHandler
+import texture
 from BlockHandler import ClosestFace
 from InputHandler import InputEvents
 from degreesMath import sin, cos
@@ -22,6 +24,7 @@ import ChunkHandler
 import UIHandler
 import WorldHandler
 from Enumerations import *
+import TickUpdaterHandler
 
 import faulthandler
 
@@ -80,6 +83,11 @@ def main():
 
         glUniform3f(glGetUniformLocation(shader, f"uniform_BlockTypeColours[{extraId}]"), 1, 1, 1)
 
+    maxBlock = Enumerations.BlockType.HIGHLIGHT.value + 1
+    atlasTexture, iWidth, iHeight = texture.loadAtlas(GamePaths.blockAtlasPath)
+    glUniform2i(glGetUniformLocation(shader, "blockAtlasSize"), iWidth, iHeight)
+    glUniform1i(glGetUniformLocation(shader, "maxBlocks"), maxBlock)
+
     # ----- OpenGL Settings -----
     version = GL_VERSION
     print(f"OpenGL Version: {glGetString(version).decode()}")
@@ -103,6 +111,8 @@ def main():
     glClearColor(0.5294, 0.8078, 0.9216, 1.0)
     
     # ----- Main ------
+    GameTickUpdater = TickUpdaterHandler.TickUpdater()
+
     times = [0]
     fpsTimes = [0]
     running = True
@@ -112,8 +122,10 @@ def main():
 
     world = WorldHandler.World(shader)
     world.setup()
+    GameTickUpdater.ObjectCheck.append(world)
 
-    player = PlayerHandler.Player(shader, uiPlainShader, vec3(0.1, 20, 0.1), displayV/2, world, inputEvent)
+    player = PlayerHandler.Player(shader, uiPlainShader, vec3(0.1, 20, 0.1), displayV//2, world, inputEvent)
+    GameTickUpdater.ObjectCheck.append(player)
 
     player.highlightBlock.chunkPos = ivec3(5, 5, 5)
     player.highlightBlock.show = True
@@ -126,6 +138,8 @@ def main():
 
     frame = 0
     targetFPS = 60
+
+    GameTickUpdater.StartTickUpdater()
 
     while running:
         sA = perf_counter() * 1000
@@ -150,6 +164,8 @@ def main():
 
         glUseProgram(shader)
 
+        glBindTexture(GL_TEXTURE_2D, atlasTexture)
+
         glUniformMatrix4fv(uniformView, 1, GL_FALSE,
                            glm.value_ptr(player.lookAtMatrix))
 
@@ -162,18 +178,22 @@ def main():
         glUniform3f(uniformLightPos, sin(angle)*radius, 16, cos(angle)*radius)
 
         player.rotateCamera()
-        #player.moveCamera(deltaT)
+        # player.gravityAffected = False
+        # player.moveCamera(deltaT)
         player.mouseHandler()
         player.movementHandler(deltaT)
-
-        world.update(targetFPS=targetFPS)
 
         player.draw()
         world.drawGroups()
 
-        #print("Collision..", )
+        while not GameTickUpdater.MainThreadFunctionsQueue.empty():
+            func, obj = GameTickUpdater.MainThreadFunctionsQueue.get()
+            func(obj)
+
+        glBindTexture(GL_TEXTURE_2D, 0)
 
         glUseProgram(uiPlainShader)
+
         glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ZERO)
         player.drawCrosshair()
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
@@ -194,6 +214,8 @@ def main():
 
 
 if __name__ == "__main__":
+    import AtlasTextureGenerator
+
     """import cProfile, pstats
 
     profiler = cProfile.Profile()
@@ -204,4 +226,5 @@ if __name__ == "__main__":
     stats.print_stats()"""
     faulthandler.enable()
 
+    AtlasTextureGenerator.generateBlockAtlas()
     main()

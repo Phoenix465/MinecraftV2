@@ -241,8 +241,26 @@ class ChunkGroup:
         self.VBO.draw()
 
 
+def GetCloseAdjacentChunks(world, checkPos):
+    returnChunks = []
+
+    chunkDict = world.chunks
+    chunkSizeVector = world.chunkSize * ivec3(1, 0, 1)
+
+    closeChunkLeft = ivec3(checkPos // world.chunkMultiplier * world.chunkMultiplier) * ivec3(1, 0, 1)
+
+    for adjacentChunkCoords in world.chunkRelVec:
+        chunkPos = closeChunkLeft + (adjacentChunkCoords * chunkSizeVector)
+
+        if chunkPos in chunkDict:
+            returnChunks.append(chunkDict[chunkPos])
+
+    return returnChunks
+
+
 def IsPointInChunkI(chunk: Chunk, pos: ivec3):
     return glm.all(glm.greaterThanEqual(pos, chunk.minPosI)) and glm.all(glm.lessThan(pos, chunk.maxPosI))
+
 
 def IsPointInChunkV(chunk: Chunk, pos: vec3):
     return glm.all(glm.greaterThanEqual(pos, chunk.minPos)) and glm.all(glm.lessThan(pos, chunk.maxPos))

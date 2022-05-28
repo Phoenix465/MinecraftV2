@@ -22,3 +22,6 @@ class PathHolder:
         self.imagesPath = path.join(self.resources, "images")
         self.scorePath = path.join(self.imagesPath, "score")
         self.scoreBasePath = path.join(self.scorePath, "score@2x.png")
+
+        self.blockPath = path.join(self.imagesPath, "block")
+        self.blockAtlasPath = path.join(self.blockPath, "atlas.png")

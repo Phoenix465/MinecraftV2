@@ -9,9 +9,12 @@ flat in BLOCKDATA {
 } blockData;
 in vec4 fragColor;
 in vec4 fragPos;
+in vec4 textureCoordsV4;
 flat in vec4 normal;
 
 out vec4 outColor;
+
+uniform sampler2D atlas;
 
 void main()
 {
@@ -19,6 +22,8 @@ void main()
     {
         discard;
     }
+
+    vec4 textureColour = texture(atlas, textureCoordsV4.rg);
 
     vec3 ambient = uniform_AmbientStrength * uniform_LightColor;
 
@@ -28,6 +33,6 @@ void main()
 
     vec3 diffuse = diff * uniform_LightColor;
     vec3 result = (ambient + diffuse) * fragColor.xyz;
-    outColor = vec4(result.xyz, 1);
-
+    outColor = vec4(result.xyz, 1) * textureColour;
+    outColor = textureColour;
 }

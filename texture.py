@@ -44,6 +44,38 @@ def loadTexture(imagePath, alpha=0, imageLoad=None):
     return textureId
 
 
+def loadAtlas(imagePath):
+    textureSurface = image.load(imagePath).convert_alpha()
+
+    width = textureSurface.get_width()
+    height = textureSurface.get_height()
+
+    textureData = image.tostring(textureSurface, "RGBA", True)
+
+    # glEnable(GL_TEXTURE_2D)
+    textureId = glGenTextures(1)
+    # https://learnopengl.com/Advanced-OpenGL/Anti-Aliasing
+
+    glBindTexture(GL_TEXTURE_2D, textureId)
+
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, textureData)
+
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER)
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER)
+
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST)
+
+    glGenerateMipmap(GL_TEXTURE_2D)
+
+    glBindTexture(GL_TEXTURE_2D, 0)
+
+    return textureId, width, height
+
+
 def loadAnimation(imageFirstPath, returnImage=False):  # Example: menu-back@2x.png
     pathSplit = splitext(imageFirstPath)
     imageFormat = pathSplit[0] + "{||}" + pathSplit[1]
